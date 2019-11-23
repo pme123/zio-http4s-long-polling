@@ -4,9 +4,9 @@ After checking out some Blogs (see https://github.com/pme123/zio-examples),
 I wanted to try _ZIO_ with an own problem.
 
 ## Scenario ##
-In our Play Application we use a Rest Service that provides _Long Polling_ for getting Task from a Queue internally.
+In our Play Application we use a Rest Service that provides _Long Polling_ for getting Tasks (internally they are in Topics).
 
-So our first solution was just to pull this Service:
+So our first solution was just to poll this Service:
 ```
   actorSystem.scheduler.schedule(initialDelay = 5.seconds, interval = 1.seconds) {
     fetchAndProcessTasks()
@@ -46,7 +46,7 @@ This was my first solution:
 ```
 
 You may spot the problem: `Future[Future[_]]`. 
-If the Class is restarted there are 2 `fetchAndProcessTasks()` running now - Really Bad!
+If the App is restarted there could be two `fetchAndProcessTasks()` running now - Really Bad!
 
 Adding a flag works (because it is a singleton) but is not so _Scala_ style:
 
@@ -71,7 +71,7 @@ Adding a flag works (because it is a singleton) but is not so _Scala_ style:
       case NonFatal(ex) =>
         error(s"Unable to fetch external tasks - $ex")
     }.flatMap(_ =>
-      if (fetchNextTasks)
+      if (fetchNextTasks) // here we check if we should still fetch tasks
         fetchAndProcessTasks()
       else
         Future.unit
@@ -185,15 +185,18 @@ There was an exception: Connection refused: localhost/0:0:0:0:0:0:0:1:8088
 The Log shows nicely how each attempt needed twice the time as the one before.
 
 Next thing is the result type is `Either[String, String]` from _sttp_.
-I would like the result to be a String when success, or an exception handled by ZIO if failure.
+I would like the result to be the value when success, or an exception message. 
+A Throwable would stop the program entirely.
+
 ```
 numbers <- sttp
         ...
-        .flatMap {
-          case Left(msg) =>
-            IO.fail(ServiceException(msg))
-          case Right(value) => ZIO.effectTotal(value)
-        }
+        .map {
+            case Left(msg) =>
+              s"Exception: $msg"
+            case Right(value) =>
+              value
+         }
 ``` 
 To be fair in the code above we encapsulated the code that accessed the REST-Service and the one that handles the numbers.
 So in essence this would be the code left:
@@ -219,6 +222,8 @@ We log the error and finish the program either successful (0) of failing (-1).
 
 ## The Server
 The server part just simulates this behaviour of providing Numbers at different times.
+
+I tried some aspects of _ZIO_, like its module pattern.
 
 # Buildtool Mill
 
