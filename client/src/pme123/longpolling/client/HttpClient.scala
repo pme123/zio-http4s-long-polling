@@ -6,7 +6,6 @@ import java.util.concurrent.TimeUnit
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.zio.AsyncHttpClientZioBackend
 import com.softwaremill.sttp.circe._
-import io.circe
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration._
@@ -29,10 +28,9 @@ object HttpClient extends zio.App {
       .send()
       .map(_.body)
       .flatMap {
-        case o: Either[String, Either[DeserializationError[circe.Error], List[Int]]] =>ZIO.succeed(o)
         case Left(msg) =>
           console.putStrLn(s"Problem with the service: $msg") *>
-          ZIO.succeed(Nil)
+            ZIO.succeed(Nil)
         case Right(Left(errors)) =>
           console.putStrLn(s"Problem to deserialize the result: $errors") *>
             ZIO.succeed(Nil)
@@ -51,11 +49,11 @@ object HttpClient extends zio.App {
 
   private def handleNumbers(numbers: Seq[Int]) =
     ZIO.foreachPar(numbers) { number =>
-      (for {
+      for {
         _ <- ZIO.sleep(1.second)
         t <- clock.currentTime(TimeUnit.SECONDS)
         _ <- console.putStrLn(s"Result (${t % 1000} s): $number")
-      } yield ())
+      } yield ()
     }
 
   def run(args: List[String]): ZIO[zio.ZEnv, Nothing, Int] =
