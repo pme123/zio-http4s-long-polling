@@ -16,7 +16,7 @@ import zio.console.putStrLn
 import zio.duration._
 import zio.interop.catz._
 import zio.random.Random
-import zio.{App, RIO, Runtime, ZEnv, ZIO}
+import zio.{App, Queue, RIO, Runtime, ZEnv, ZIO}
 
 object HttpServer extends App {
   type AppEnvironment = GeneratorEnv
@@ -27,10 +27,10 @@ object HttpServer extends App {
 
   import dsl._
 
-  def service(rts: Runtime[Random with Clock]): HttpRoutes[AppTask] =
+  def service(queue: Queue[Int], rts: Runtime[Random with Clock]): HttpRoutes[AppTask] =
     HttpRoutes.of[AppTask] {
       case GET -> Root / IntVar(duration) =>
-        NumberGenerator.>.nextNumbers(Duration(duration, TimeUnit.SECONDS), rts)
+        NumberGenerator.>.nextNumbers(queue, Duration(duration, TimeUnit.SECONDS), rts)
           .tapError(e => putStrLn(s"Server Exception: $e"))
           .tap(r => putStrLn(s"Result is $r"))
           .foldM(_ => InternalServerError(), Ok(_))
@@ -48,17 +48,20 @@ object HttpServer extends App {
   private def program = {
     ZIO.runtime[AppEnvironment]
       .flatMap { implicit rts =>
-        val httpApp = Router[AppTask](
-          "/" -> service(rts)
-        ).orNotFound
+        for {
+          queue <- NumberGenerator.>.initQueue(rts)
+          httpApp = Router[AppTask](
+            "/" -> service(queue, rts)
+          ).orNotFound
+        } yield
+          BlazeServerBuilder[AppTask]
+            .bindHttp(8088, "localhost")
+            .withHttpApp(httpApp)
+            .serve
+            .compile
+            .drain
 
-        BlazeServerBuilder[AppTask]
-          .bindHttp(8088, "localhost")
-          .withHttpApp(httpApp)
-          .serve
-          .compile
-          .drain
-      }
+      }.flatten
   }
 
 

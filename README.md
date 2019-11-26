@@ -1,7 +1,7 @@
 # Long Polling with ZIO
 
 After checking out some Blogs (see https://github.com/pme123/zio-examples), 
-I wanted to try _ZIO_ with an own problem.
+I wanted to try _ZIO_ with an own problem (see https://zio.dev).
 
 ## Scenario ##
 In our Play Application we use a Rest Service that provides _Long Polling_ for getting Tasks (internally they are in Topics).
@@ -220,6 +220,8 @@ object HttpClient extends zio.App {
 ```
 We log the error and finish the program either successful (0) of failing (-1).
 
+All the code you find here: [HttpClient](https://github.com/pme123/zio-http4s-long-polling/blob/master/client/src/pme123/longpolling/client/HttpClient.scala) 
+
 ## The Server
 The server part just simulates this behaviour of providing Numbers at different times.
 
@@ -230,3 +232,4 @@ I tried some aspects of _ZIO_, like its module pattern.
 ## Update dependencies in Intellij
 
     mill mill.scalalib.GenIdea/idea
+    
