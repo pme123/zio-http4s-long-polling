@@ -6,7 +6,7 @@ import zio.clock.Clock
 import zio.random.Random
 import zio.stream.ZStream
 import zio.{Queue, RIO, Runtime, ZIO, random}
-
+import zio.duration._
 
 trait NumberProvider extends Serializable {
   val numberProvider: NumberProvider.Service[NumberProviderEnv]
@@ -42,8 +42,8 @@ object NumberProvider {
               rts.unsafeRun(
                 for {
                   count <- random.nextInt(10)
-                  nr <- random.nextInt(5000)
-                  _ = Thread.sleep(nr)
+                  nr <- random.nextInt(6000)
+                  _ <- ZIO.sleep(nr.millis)
                   _ <- queue.offerAll((1 to (count + 1)).map(nr / _))
                 } yield ()
               )

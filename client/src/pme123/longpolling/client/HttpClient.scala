@@ -17,7 +17,8 @@ object HttpClient extends zio.App {
   private implicit val sttpBackend = AsyncHttpClientZioBackend()
 
   def fetchNumbers: RIO[Clock with Console, Unit] =
-    fetchNumbers("http://localhost:8088/5")
+    fetchNumbers("http://localhost:8088/3")
+      .tap(l => console.putStrLn(s"Result has ${l.size}"))
       .flatMap(handleNumbers)
       .forever
 

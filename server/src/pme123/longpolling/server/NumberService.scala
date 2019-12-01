@@ -26,10 +26,8 @@ object NumberService {
   }
 
   object > extends Service[NumberService with NumberServiceEnv] {
-
     final def nextNumbers(maxDuration: Duration): RIO[NumberService with NumberServiceEnv, List[Int]] =
       ZIO.accessM(_.generator.nextNumbers(maxDuration))
-
   }
 
   trait Live extends NumberService {
@@ -40,20 +38,22 @@ object NumberService {
 
       def nextNumbers(maxDuration: Duration): RIO[NumberServiceEnv, List[Int]] =
         for {
-          numbers <- getAtLeastOne(queue, maxDuration)
-          // add some random exception
-          _ <- if (numbers.nonEmpty && numbers.head > 4500) ZIO.fail(new IllegalStateException(s"Problem generating number ${numbers.head} > 900")) else ZIO.unit
+          numbers <- getAtLeastOne(maxDuration)
+          _ <-  // add some random exception
+            if (numbers.nonEmpty && numbers.head > 5500)
+              ZIO.fail(new IllegalStateException(s"Problem generating number ${numbers.head} > 5500"))
+            else ZIO.unit
         } yield numbers
     }
 
-    private def getAtLeastOne(queue: Queue[Int], maxDuration: Duration): RIO[Clock with Random, List[Int]] =
+    private def getAtLeastOne(maxDuration: Duration): RIO[NumberServiceEnv, List[Int]] =
       for {
         numbers <- queue.takeAll
         result <-
           if (numbers.nonEmpty || maxDuration <= 0.second)
             ZIO.effectTotal(numbers)
           else
-            ZIO.sleep(50.millis) *> getAtLeastOne(queue, Duration(maxDuration.toMillis - 50, TimeUnit.MILLISECONDS))
+            ZIO.sleep(50.millis) *> getAtLeastOne(Duration(maxDuration.toMillis - 50, TimeUnit.MILLISECONDS))
       } yield result
 
   }
