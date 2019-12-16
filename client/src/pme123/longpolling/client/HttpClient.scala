@@ -3,27 +3,25 @@ package pme123.longpolling.client
 
 import java.util.concurrent.TimeUnit
 
-import com.softwaremill.sttp._
-import com.softwaremill.sttp.asynchttpclient.zio.AsyncHttpClientZioBackend
-import com.softwaremill.sttp.circe._
+import sttp.client._
+import sttp.client.asynchttpclient.zio.AsyncHttpClientZioBackend
+import sttp.client.circe._
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration._
-import zio.{DefaultRuntime, RIO, ZEnv, ZIO, ZSchedule, clock, console}
+import zio._
 
 
 object HttpClient extends zio.App {
-  //noinspection TypeAnnotation
-  private implicit val sttpBackend = AsyncHttpClientZioBackend()
 
-  def fetchNumbers: RIO[Clock with Console, Unit] =
+  def fetchNumbers(implicit sttpBackend:  SttpBackend[Task, Nothing, NothingT]): RIO[Clock with Console, Unit] =
     fetchNumbers("http://localhost:8088/3")
       .tap(l => console.putStrLn(s"Result has ${l.size}"))
       .flatMap(handleNumbers)
       .forever
 
-  private def fetchNumbers(url: String) = {
-    sttp
+  private def fetchNumbers(url: String)(implicit sttpBackend:  SttpBackend[Task, Nothing, NothingT]) = {
+    basicRequest
       .get(uri"$url")
       .response(asJson[List[Int]])
       .send()
@@ -32,10 +30,7 @@ object HttpClient extends zio.App {
         case Left(msg) =>
           console.putStrLn(s"Problem with the service: $msg") *>
             ZIO.succeed(Nil)
-        case Right(Left(errors)) =>
-          console.putStrLn(s"Problem to deserialize the result: $errors") *>
-            ZIO.succeed(Nil)
-        case Right(Right(value)) =>
+        case Right(value) =>
           ZIO.succeed(value)
       }
       .tapError(error =>
@@ -44,7 +39,7 @@ object HttpClient extends zio.App {
           _ <- console.putStrLn(s"Failing attempt (${t % 100} s): ${error.getMessage}")
         } yield ()
       )
-      .retry(ZSchedule.recurs(5) && ZSchedule.exponential(1.second))
+      .retry(Schedule.recurs(5) && Schedule.exponential(1.second))
 
   }
 
@@ -58,8 +53,7 @@ object HttpClient extends zio.App {
     }
 
   def run(args: List[String]): ZIO[zio.ZEnv, Nothing, Int] =
-    fetchNumbers
-      .tapError { ex => console.putStrLn(s"There was an exception: ${ex.getMessage}") }
+    program
       .fold(_ => -1, _ => 0)
 
   def program: ZIO[ZEnv, Throwable, Unit] =
@@ -67,7 +61,8 @@ object HttpClient extends zio.App {
       (for {
         _ <- zio.console.putStrLn(s"New Request")
         start <- clock.currentDateTime
-        numbers <- fetchNumbers
+        backend <- AsyncHttpClientZioBackend()
+        numbers <- fetchNumbers(backend)
         end <- clock.currentDateTime
         _ <- zio.console.putStrLn(s"Time taken: ${end.toInstant.toEpochMilli - start.toInstant.toEpochMilli} ms")
         _ <- zio.console.putStrLn(s"Result: $numbers")
@@ -82,12 +77,3 @@ object HttpClient extends zio.App {
 case class ServiceException(msg: String) extends Throwable
 
 case class DeserializeException(msg: String) extends Throwable
-
-object MyApp extends App {
-  new DefaultRuntime {}
-    .unsafeRun(
-      HttpClient.fetchNumbers
-        .tapError { ex => console.putStrLn(s"There was an exception: ${ex.getMessage}") }
-        .fold(_ => -1, _ => 0)
-    )
-}

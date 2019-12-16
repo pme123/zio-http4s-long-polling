@@ -48,13 +48,10 @@ object HttpServer extends App {
         for {
           _ <- zio.console.putStrLn("Server startup...")
           queue <- Queue.bounded[Int](1000)
-          numberProvider <- numberProvider(rts, queue).fork
-          numberService <- numberService(queue).fork
-          _ <- zio.console.putStrLn("Server startup finished")
-          _ <- numberProvider.join
-          _ <- numberService.join
+          _ <- numberProvider(rts, queue).daemon.fork // runs forever
+          _ <- numberService(queue)                   // runs forever
           _ <- zio.console.putStrLn("Server shutdown finished")
-        } yield numberService
+        } yield ()
       }
   }
 

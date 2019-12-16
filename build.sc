@@ -8,11 +8,10 @@ trait MyModule extends ScalaModule {
     val cats = "2.0.0"
     val circe = "0.12.1"
     val http4s = "0.21.0-M4"
-    val scalaXml = "1.2.0"
-    val sttp = "1.6.3"
-    val zio = "1.0.0-RC16"
-    val zioMacros = "0.4.0"
-    val zioCats = "2.0.0.0-RC7"
+    val sttp = "2.0.0-RC5"
+    val zio = "1.0.0-RC17"
+    val zioCats = "2.0.0.0-RC10"
+    val zioConfig = "1.0.0-RC6"
   }
 
   object libs {
@@ -25,13 +24,11 @@ trait MyModule extends ScalaModule {
       ivy"org.http4s::http4s-blaze-client:${version.http4s}"
     val http4sCirce = ivy"org.http4s::http4s-circe:${version.http4s}"
     val http4sDsl = ivy"org.http4s::http4s-dsl:${version.http4s}"
-    val sttpCore = ivy"com.softwaremill.sttp::core:${version.sttp}"
+    val sttpCore = ivy"com.softwaremill.sttp.client::core:${version.sttp}"
     val sttpClient =
-      ivy"com.softwaremill.sttp::async-http-client-backend-zio:${version.sttp}"
-    val sttpCirce = ivy"com.softwaremill.sttp::circe::${version.sttp}"
+      ivy"com.softwaremill.sttp.client::async-http-client-backend-zio:${version.sttp}"
+    val sttpCirce = ivy"com.softwaremill.sttp.client::circe::${version.sttp}"
     val zio = ivy"dev.zio::zio:${version.zio}"
-    val zioMacrosAccess = ivy"dev.zio::zio-macros-access:${version.zioMacros}"
-    val zioMacrosMockable = ivy"dev.zio::zio-macros-mock:${version.zioMacros}"
     val zioStream = ivy"dev.zio::zio-streams:${version.zio}"
     val zioCats = ivy"dev.zio::zio-interop-cats:${version.zioCats}"
   }
