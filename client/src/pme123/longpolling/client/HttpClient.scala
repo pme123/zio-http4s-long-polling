@@ -60,13 +60,8 @@ object HttpClient extends zio.App {
     ZIO.runtime[ZEnv].flatMap { rt =>
       (for {
         _ <- zio.console.putStrLn(s"New Request")
-        start <- clock.currentDateTime
         backend <- AsyncHttpClientZioBackend()
-        numbers <- fetchNumbers(backend)
-        end <- clock.currentDateTime
-        _ <- zio.console.putStrLn(s"Time taken: ${end.toInstant.toEpochMilli - start.toInstant.toEpochMilli} ms")
-        _ <- zio.console.putStrLn(s"Result: $numbers")
-        _ <- ZIO.sleep(100.millis)
+        _ <- fetchNumbers(backend).daemon
       } yield ())
         .catchAll { ex =>
           console.putStrLn(s"There was an exception: ${ex.getMessage}")
