@@ -8,16 +8,18 @@ import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
-import pme123.longpolling.server.NumberService.NumberServiceEnv
+import pme123.longpolling.server.number.provider.NumberProvider
+import pme123.longpolling.server.number.service.NumberService
+import pme123.longpolling.server.number.service.NumberService.NumberServiceEnv
 import zio._
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.console._
 import zio.duration._
 import zio.interop.catz._
-import zio.random.Random
 
 object HttpServer extends App {
+
   type AppEnvironment = NumberServiceEnv with NumberService
 
   type AppTask[A] = RIO[AppEnvironment, A]
@@ -26,10 +28,10 @@ object HttpServer extends App {
 
   import dsl._
 
-  def routes: HttpRoutes[AppTask] =
+  def routes(qu: Queue[Int]): HttpRoutes[AppTask] =
     HttpRoutes.of[AppTask] {
       case GET -> Root / IntVar(duration) =>
-        NumberService.>.nextNumbers(Duration(duration, TimeUnit.SECONDS))
+        NumberService.nextNumbers(qu, Duration(duration, TimeUnit.SECONDS))
           .tapError(e => putStrLn(s"Server Exception: $e"))
           .tap(r => putStrLn(s"Result is $r"))
           .foldM(_ => InternalServerError(), Ok(_))
@@ -38,8 +40,8 @@ object HttpServer extends App {
   def run(args: List[String]): ZIO[ZEnv, Nothing, Int] =
     program
       .foldM(
-        err => putStrLn(s"Program failed: $err") *> ZIO.succeed(1),
-        v => putStrLn(s"Program succeded: $v") *> ZIO.succeed(0)
+        err => putStrLn(s"Program failed: $err").as(1),
+        v => putStrLn(s"Program succeded: $v").as(0)
       )
 
   private def program = {
@@ -48,35 +50,29 @@ object HttpServer extends App {
         for {
           _ <- zio.console.putStrLn("Server startup...")
           queue <- Queue.bounded[Int](1000)
-          _ <- numberProvider(rts, queue).daemon.fork // runs forever
-          _ <- numberService(queue).daemon // runs forever
+          _ <- numberService(queue).fork // runs forever
+          _ <- numberProvider(rts, queue) // runs forever
           _ <- zio.console.putStrLn("Server shutdown finished")
         } yield ()
-      }
+      }.provideCustomLayer((Blocking.live >>> NumberProvider.live) ++
+      ((Blocking.live ++ Clock.live) >>> NumberService.live))
   }
 
-  private def numberProvider(rts: Runtime[zio.ZEnv], qu: Queue[Int]) = {
-    NumberProvider.>.run(rts)
-      .provideSome[ZEnv](_ =>
-        new Blocking.Live with NumberProvider.Live {
-          def queue: Queue[Int] = qu
-        })
-  }
+  private def numberProvider(rts: Runtime[zio.ZEnv], qu: Queue[Int]) =
+    NumberProvider.run(qu, rts)
+
+  //   .provideCustomLayer(NumberProvider.live(qu))
 
   private def numberService(qu: Queue[Int]) = {
     ZIO.runtime[AppEnvironment].flatMap { implicit rts =>
       BlazeServerBuilder[AppTask]
         .bindHttp(8088, "localhost")
-        .withHttpApp(routes.orNotFound)
+        .withHttpApp(routes(qu).orNotFound)
         .serve
         .compile
         .drain
-    }.provideSome[ZEnv](_ =>
-      new Console.Live with Clock.Live with Random.Live with NumberService.Live {
-        def queue: Queue[Int] = qu
-      })
+    } //.provideCustomLayer(NumberService.live(qu))
   }
-
 
   implicit def circeJsonDecoder[A](implicit decoder: Decoder[A]): EntityDecoder[AppTask, A] = jsonOf[AppTask, A]
 

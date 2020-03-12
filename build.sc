@@ -8,9 +8,9 @@ trait MyModule extends ScalaModule {
     val cats = "2.0.0"
     val circe = "0.12.1"
     val http4s = "0.21.0-M4"
-    val sttp = "2.0.0-RC5"
-    val zio = "1.0.0-RC17"
-    val zioCats = "2.0.0.0-RC10"
+    val sttp = "2.0.3"
+    val zio = "1.0.0-RC18"
+    val zioCats = "2.0.0.0-RC11"
     val zioConfig = "1.0.0-RC6"
   }
 

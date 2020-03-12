@@ -1,3 +1,5 @@
 /.idea_modules/
 /.idea/
 /out/
+/client/client.iml
+/server/server.iml

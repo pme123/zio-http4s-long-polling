@@ -6,21 +6,35 @@ import java.util.concurrent.TimeUnit
 import sttp.client._
 import sttp.client.asynchttpclient.zio.AsyncHttpClientZioBackend
 import sttp.client.circe._
+import zio._
 import zio.clock.Clock
 import zio.console.Console
 import zio.duration._
-import zio._
 
 
 object HttpClient extends zio.App {
 
-  def fetchNumbers(implicit sttpBackend:  SttpBackend[Task, Nothing, NothingT]): RIO[Clock with Console, Unit] =
+  def run(args: List[String]): ZIO[zio.ZEnv, Nothing, Int] =
+    program
+      .fold(_ => -1, _ => 0)
+
+  def program: ZIO[ZEnv, Throwable, Unit] =
+    (for {
+      _ <- zio.console.putStrLn(s"New Request")
+      backend <- AsyncHttpClientZioBackend()
+      _ <- fetchNumbers(backend)
+    } yield ())
+      .catchAll { ex =>
+        console.putStrLn(s"There was an exception on the Client: ${ex.getMessage}")
+      }
+
+  private def fetchNumbers(implicit sttpBackend: SttpBackend[Task, Nothing, NothingT]): RIO[Clock with Console, Unit] =
     fetchNumbers("http://localhost:8088/3")
       .tap(l => console.putStrLn(s"Result has ${l.size}"))
       .flatMap(handleNumbers)
       .forever
 
-  private def fetchNumbers(url: String)(implicit sttpBackend:  SttpBackend[Task, Nothing, NothingT]) = {
+  private def fetchNumbers(url: String)(implicit sttpBackend: SttpBackend[Task, Nothing, NothingT]) = {
     basicRequest
       .get(uri"$url")
       .response(asJson[List[Int]])
@@ -50,22 +64,6 @@ object HttpClient extends zio.App {
         t <- clock.currentTime(TimeUnit.SECONDS)
         _ <- console.putStrLn(s"Result (${t % 1000} s): $number")
       } yield ()
-    }
-
-  def run(args: List[String]): ZIO[zio.ZEnv, Nothing, Int] =
-    program
-      .fold(_ => -1, _ => 0)
-
-  def program: ZIO[ZEnv, Throwable, Unit] =
-    ZIO.runtime[ZEnv].flatMap { rt =>
-      (for {
-        _ <- zio.console.putStrLn(s"New Request")
-        backend <- AsyncHttpClientZioBackend()
-        _ <- fetchNumbers(backend).daemon
-      } yield ())
-        .catchAll { ex =>
-          console.putStrLn(s"There was an exception: ${ex.getMessage}")
-        }
     }
 }
 
