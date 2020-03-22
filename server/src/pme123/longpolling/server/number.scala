@@ -62,7 +62,8 @@ object number {
         def nextNumbers(qu: Queue[Int], maxDuration: Duration): ZIO[Clock, Throwable, List[Int]]
       }
 
-      val live: ZLayer[Blocking with Clock, Nothing, NumberService] = ZLayer.fromFunction{ bloWithClock: Blocking with Clock =>
+      val live: ZLayer[Blocking with Clock, Nothing, NumberService] = ZLayer.succeed{
+
         def getAtLeastOne(queue: Queue[Int], maxDuration: Duration): RIO[Clock, List[Int]] =
           for {
             numbers <- queue.takeAll
